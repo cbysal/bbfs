@@ -1,0 +1,11 @@
+.vscode
+*.cmd
+*.img
+*.ko
+*.mod
+*.mod.c
+*.o
+*.order
+*.sh
+*.symvers
+mkfs.bbfs
