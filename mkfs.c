@@ -11,23 +11,25 @@
 #include "fs.h"
 
 int main(int argc, char **argv) {
-    if (argc != 2)
-        return EXIT_FAILURE;
+    if (argc != 2) {
+        return -1;
+    }
 
     int fd = open(argv[1], O_RDWR);
-    if (fd == -1)
-        return EXIT_FAILURE;
+    if (fd == -1) {
+        return -1;
+    }
 
     struct stat stat_buf;
     if (fstat(fd, &stat_buf)) {
         close(fd);
-        return EXIT_FAILURE;
+        return -1;
     }
 
     if ((stat_buf.st_mode & S_IFMT) == S_IFBLK) {
         if (ioctl(fd, BLKGETSIZE64, &stat_buf.st_size)) {
             close(fd);
-            return EXIT_FAILURE;
+            return -1;
         }
     }
 

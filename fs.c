@@ -27,8 +27,9 @@ static struct file_system_type fs_type = {
 
 static int __init bbfs_init(void) {
     int ret = bbfs_init_inode_cache();
-    if (ret)
+    if (ret) {
         return ret;
+    }
     return register_filesystem(&fs_type);
 }
 

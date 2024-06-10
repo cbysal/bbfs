@@ -16,8 +16,9 @@ static struct kmem_cache *bbfs_inode_cache;
 int bbfs_init_inode_cache(void) {
     bbfs_inode_cache = kmem_cache_create_usercopy("bbfs_cache", sizeof(struct bbfs_inode_info), 0, 0, 0,
                                                   sizeof(struct bbfs_inode_info), NULL);
-    if (!bbfs_inode_cache)
+    if (!bbfs_inode_cache) {
         return -ENOMEM;
+    }
     return 0;
 }
 
@@ -25,8 +26,9 @@ void bbfs_destroy_inode_cache(void) { kmem_cache_destroy(bbfs_inode_cache); }
 
 static struct inode *bbfs_alloc_inode(struct super_block *sb) {
     struct bbfs_inode_info *ci = kmem_cache_alloc(bbfs_inode_cache, GFP_KERNEL);
-    if (!ci)
+    if (!ci) {
         return NULL;
+    }
     inode_init_once(&ci->vfs_inode);
     return &ci->vfs_inode;
 }
@@ -54,8 +56,9 @@ static int bbfs_write_inode(struct inode *inode, struct writeback_control *wbc) 
     ci->disk_inode.i_mtime_nsec = inode_get_mtime_nsec(inode);
 
     struct buffer_head *bh = sb_bread(sb, sbi->inode_begin + inode->i_ino);
-    if (!bh)
+    if (!bh) {
         return -EIO;
+    }
     memcpy(bh->b_data, ci, PAGE_SIZE);
     mark_buffer_dirty(bh);
     brelse(bh);
@@ -72,12 +75,14 @@ static void bbfs_put_super(struct super_block *sb) {
 static int bbfs_sync_fs(struct super_block *sb, int wait) {
     struct bbfs_sb_info *sbi = sb->s_fs_info;
     struct buffer_head *bh = sb_bread(sb, 0);
-    if (!bh)
+    if (!bh) {
         return -EIO;
+    }
     memcpy(bh->b_data, sbi, PAGE_SIZE);
     mark_buffer_dirty(bh);
-    if (wait)
+    if (wait) {
         sync_dirty_buffer(bh);
+    }
     brelse(bh);
     return 0;
 }
@@ -98,8 +103,9 @@ int bbfs_fill_super(struct super_block *sb, void *data, int silent) {
     sb->s_op = &bbfs_sops;
 
     struct buffer_head *bh = sb_bread(sb, 0);
-    if (!bh)
+    if (!bh) {
         return -EIO;
+    }
     struct bbfs_sb_info *sbi = kzalloc(sizeof(struct bbfs_sb_info), GFP_KERNEL);
     if (!sbi) {
         kfree(bh);

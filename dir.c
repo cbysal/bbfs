@@ -15,11 +15,13 @@ static int bbfs_iterate(struct file *dir, struct dir_context *ctx) {
     struct super_block *sb = inode->i_sb;
     struct bbfs_sb_info *sbi = sb->s_fs_info;
 
-    if (!S_ISDIR(inode->i_mode))
+    if (!S_ISDIR(inode->i_mode)) {
         return -ENOTDIR;
+    }
 
-    if (!dir_emit_dots(dir, ctx))
+    if (!dir_emit_dots(dir, ctx)) {
         return 0;
+    }
 
     int pos = ctx->pos - 2;
     for (int i = 0; i < ci->disk_inode.l_num; i++) {
@@ -34,8 +36,9 @@ static int bbfs_iterate(struct file *dir, struct dir_context *ctx) {
                         pos--;
                         continue;
                     }
-                    if (!dir_emit(ctx, ent->name, NAME_MAX, ent->ino, ent->type))
+                    if (!dir_emit(ctx, ent->name, NAME_MAX, ent->ino, ent->type)) {
                         break;
+                    }
                     ctx->pos++;
                 }
             }

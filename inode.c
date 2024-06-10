@@ -66,15 +66,18 @@ unsigned long bbfs_find_and_mark_free_block(struct super_block *sb, int level) {
 struct inode *bbfs_iget(struct super_block *sb, unsigned long ino) {
     struct bbfs_sb_info *sbi = BBFS_SB(sb);
 
-    if (ino >= sbi->disk_sb.nr_inodes)
+    if (ino >= sbi->disk_sb.nr_inodes) {
         return ERR_PTR(-EINVAL);
+    }
 
     struct inode *inode = iget_locked(sb, ino);
-    if (!inode)
+    if (!inode) {
         return ERR_PTR(-ENOMEM);
+    }
 
-    if (!(inode->i_state & I_NEW))
+    if (!(inode->i_state & I_NEW)) {
         return inode;
+    }
 
     struct bbfs_inode_info *ci = BBFS_INODE(inode);
     struct buffer_head *bh = sb_bread(sb, sbi->inode_begin + ino);
@@ -115,13 +118,14 @@ struct inode *bbfs_iget(struct super_block *sb, unsigned long ino) {
     return inode;
 }
 
-struct inode *bbfs_new_inode(struct inode *dir, mode_t mode) {
+static struct inode *bbfs_new_inode(struct inode *dir, mode_t mode) {
     struct super_block *sb = dir->i_sb;
 
     unsigned long ino = bbfs_find_and_mark_free_inode(sb);
     struct inode *inode = bbfs_iget(sb, ino);
-    if (IS_ERR(inode))
+    if (IS_ERR(inode)) {
         return inode;
+    }
 
     struct bbfs_inode_info *ci = BBFS_INODE(inode);
     memset(&ci->disk_inode, 0, sizeof(struct bbfs_inode));
@@ -131,8 +135,9 @@ struct inode *bbfs_new_inode(struct inode *dir, mode_t mode) {
     inode->i_gid = current_gid();
     struct timespec64 cur_time = current_time(inode);
     inode_set_ctime_current(inode);
+    inode_set_atime_to_ts(inode, cur_time);
     inode_set_ctime_to_ts(inode, cur_time);
-    inode->i_atime = inode->i_mtime = cur_time;
+    inode_set_mtime_to_ts(inode, cur_time);
 
     if (S_ISDIR(inode->i_mode)) {
         inode->i_size = sizeof(struct bbfs_inode);
@@ -167,8 +172,9 @@ static struct dentry *bbfs_lookup(struct inode *dir, struct dentry *dentry, unsi
             struct buffer_head *bh = sb_bread(sb, sbi->block_begin + j);
             for (int k = 0; k < PAGE_SIZE; k += sizeof(struct bbfs_entry)) {
                 struct bbfs_entry *ent = (struct bbfs_entry *)(bh->b_data + k);
-                if (!ent->valid)
+                if (!ent->valid) {
                     continue;
+                }
                 if (!strcmp(ent->name, dentry->d_name.name)) {
                     struct inode *inode = bbfs_iget(sb, ent->ino);
                     d_add(dentry, inode);
@@ -255,12 +261,13 @@ static int bbfs_link(struct dentry *old_dentry, struct inode *dir, struct dentry
                 struct bbfs_entry *ent = (struct bbfs_entry *)(bh->b_data + k);
                 if (!ent->valid) {
                     ent->valid = 1;
-                    if (S_ISDIR(file->i_mode))
+                    if (S_ISDIR(file->i_mode)) {
                         ent->type = DT_DIR;
-                    else if (S_ISREG(file->i_mode))
+                    } else if (S_ISREG(file->i_mode)) {
                         ent->type = DT_REG;
-                    else if (S_ISLNK(file->i_mode))
+                    } else if (S_ISLNK(file->i_mode)) {
                         ent->type = DT_LNK;
+                    }
                     ent->ino = file->i_ino;
                     strcpy(ent->name, dentry->d_name.name);
                     mark_buffer_dirty(bh);
@@ -302,15 +309,18 @@ static int bbfs_unlink(struct inode *dir, struct dentry *dentry) {
                 }
             }
             brelse(bh);
-            if (found)
+            if (found) {
                 break;
+            }
         }
-        if (found)
+        if (found) {
             break;
+        }
     }
 
-    if (file->i_nlink)
+    if (file->i_nlink) {
         return 0;
+    }
 
     for (int i = 0; i < file_ci->disk_inode.l_num; i++) {
         unsigned long blk_start = dir_ci->disk_inode.levels[i];
@@ -356,17 +366,20 @@ static int bbfs_rename(struct mnt_idmap *idmap, struct inode *old_dir, struct de
                     memcpy(&entry, ent, sizeof(struct bbfs_entry));
                     memset(ent, 0, sizeof(struct bbfs_entry));
                     mark_buffer_dirty(bh);
-                    if (S_ISDIR(file->i_mode))
+                    if (S_ISDIR(file->i_mode)) {
                         inode_dec_link_count(old_dir);
+                    }
                     break;
                 }
             }
             brelse(bh);
-            if (found)
+            if (found) {
                 break;
+            }
         }
-        if (found)
+        if (found) {
             break;
+        }
     }
 
     strcpy(entry.name, new_dentry->d_name.name);
@@ -382,8 +395,9 @@ static int bbfs_rename(struct mnt_idmap *idmap, struct inode *old_dir, struct de
                     memcpy(ent, &entry, sizeof(struct bbfs_entry));
                     mark_buffer_dirty(bh);
                     brelse(bh);
-                    if (S_ISDIR(file->i_mode))
+                    if (S_ISDIR(file->i_mode)) {
                         inode_inc_link_count(new_dir);
+                    }
                     return 0;
                 }
             }
@@ -405,8 +419,9 @@ static int bbfs_rename(struct mnt_idmap *idmap, struct inode *old_dir, struct de
                 memcpy(ent, &entry, sizeof(struct bbfs_entry));
                 mark_buffer_dirty(bh);
                 brelse(bh);
-                if (S_ISDIR(file->i_mode))
+                if (S_ISDIR(file->i_mode)) {
                     inode_inc_link_count(new_dir);
+                }
                 return 0;
             }
         }
@@ -498,15 +513,18 @@ static int bbfs_rmdir(struct inode *dir, struct dentry *dentry) {
                 }
             }
             brelse(bh);
-            if (found)
+            if (found) {
                 break;
+            }
         }
-        if (found)
+        if (found) {
             break;
+        }
     }
 
-    if (file->i_nlink < 2)
+    if (file->i_nlink < 2) {
         return 0;
+    }
 
     struct buffer_head *bh =
         sb_bread(sb, sbi->imap_begin + file->i_ino / (sizeof(struct bbfs_imap_block) / sizeof(uint32_t)));

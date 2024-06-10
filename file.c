@@ -22,8 +22,9 @@ static int bbfs_file_get_block(struct inode *inode, sector_t iblock, struct buff
         level++;
     }
 
-    if (!create && ci->disk_inode.l_num < level)
+    if (!create && ci->disk_inode.l_num < level) {
         return 0;
+    }
 
     while (ci->disk_inode.l_num <= level) {
         unsigned long blk_start = bbfs_find_and_mark_free_block(sb, ci->disk_inode.l_num);
@@ -37,8 +38,8 @@ static int bbfs_file_get_block(struct inode *inode, sector_t iblock, struct buff
 
 static void bbfs_readahead(struct readahead_control *rac) { mpage_readahead(rac, bbfs_file_get_block); }
 
-static int bbfs_writepage(struct page *page, struct writeback_control *wbc) {
-    return block_write_full_page(page, bbfs_file_get_block, wbc);
+static int bbfs_writepages(struct address_space *mapping, struct writeback_control *wbc) {
+    return mpage_writepages(mapping, wbc, bbfs_file_get_block);
 }
 
 static int bbfs_write_begin(struct file *file, struct address_space *mapping, loff_t pos, unsigned int len,
@@ -54,7 +55,7 @@ static int bbfs_write_end(struct file *file, struct address_space *mapping, loff
     ret = generic_write_end(file, mapping, pos, len, copied, page, fsdata);
 
     struct timespec64 cur_time = current_time(inode);
-    inode->i_mtime = cur_time;
+    inode_set_mtime_to_ts(inode, cur_time);
     inode_set_ctime_to_ts(inode, cur_time);
     mark_inode_dirty(inode);
 
@@ -62,7 +63,7 @@ static int bbfs_write_end(struct file *file, struct address_space *mapping, loff
 }
 
 const struct address_space_operations bbfs_aops = {
-    .writepage = bbfs_writepage,
+    .writepages = bbfs_writepages,
     .readahead = bbfs_readahead,
     .write_begin = bbfs_write_begin,
     .write_end = bbfs_write_end,
